@@ -10,6 +10,8 @@ from torchtext.data import Batch, Dataset, Example, Iterator, TabularDataset, Bu
 from namedtensor import ntorch, NamedTensor
 from namedtensor.text import NamedField
 
+from pytorch_pretrained_bert import BertTokenizer
+
 import io
 import os
 import json
@@ -18,7 +20,7 @@ import numpy as np
 PAD = "<pad>"
 NONE = "<none>" # just use unk for bucket e,t,v?
 
-def make_fields(maxlen=-1):
+def make_fields(maxlen=-1, bert=False):
     ENT   = NamedField(names=("els",), lower=True, include_lengths=True)
     TYPE  = NamedField(names=("els",), lower=True, include_lengths=True)
     VALUE = NamedField(names=("els",), lower=True, include_lengths=True)
@@ -26,6 +28,8 @@ def make_fields(maxlen=-1):
         names = ("els",),
         lower=True, include_lengths=True, init_token=None, eos_token=None, is_target=True)
     TEXT  = NamedField(
+        tokenize = BertTokenizer.from_pretrained('bert-base-uncased').tokenize
+            if bert else None,
         names = ("time",),
         lower=True, include_lengths=True,
         init_token="<bos>", eos_token="<eos>", is_target=True,
@@ -107,7 +111,8 @@ class RotoExample(Example):
             types = type_field.preprocess(types)
             values = value_field.preprocess(values)
             values_text = text_field.preprocess(values)
-            text = text_field.preprocess(x["summary"])
+            text = text_field.preprocess(" ".join(x["summary"]))
+            import pdb; pdb.set_trace()
 
             uents = list(set(ents)) + [NONE]
             utypes = list(set(types)) + [NONE]
@@ -219,6 +224,7 @@ class RotoDataset(Dataset):
         entity_field, type_field, value_field, value_text_field, text_field,
         reset=False,
         sentences=False, numericvalues=False, supex=-1,
+        bert=False,
         **kwargs
     ):
 
@@ -233,6 +239,8 @@ class RotoDataset(Dataset):
             suffix = ".sens" + suffix
         if numericvalues:
             suffix = ".numeric" + suffix
+        if bert:
+            suffix = ".bert" + suffix
         if supex >= 0:
             suffix = suffix + f".{supex}"
         save_path = path + suffix
